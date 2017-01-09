@@ -139,6 +139,10 @@ public class ProbabilisticDictionary {
 		fis.close();
 	}
 	
+	public void prune() {
+		prune(DEFAULT_PRUNING_THRESHOLD);
+	}
+	
 	/**
 	 * Remove all the entries from the dictionary if their probability is 
 	 * lower than the threshold. Use DEFAULT_PRUNING_THRESHOLD for default
@@ -148,6 +152,16 @@ public class ProbabilisticDictionary {
 	 * 				the given threshold;
 	 */
 	public void prune(double threshold) {
+		if (threshold < 0) {
+			System.err.println("I cannot handle negative probabilities");
+			System.exit(-1);
+		}
+		if (threshold > 1) {
+			System.err.println("I cannot handle non-probabilities");
+			System.exit(-1);
+		}
+		
+		
 		for (int i : TRANSLATIONS.keySet()) {
 			Iterator<Integer> it = TRANSLATIONS.get(i).keySet().iterator();
 			
