@@ -1,10 +1,13 @@
 package es.nlel.cross.ibmm1;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -13,93 +16,101 @@ public class ProbabilisticDictionary {
 
 	public static final double DEFAULT_PRUNING_THRESHOLD = 0.01;
 
-	private final String FILE_SPLIT_CHARACTER = "\t";
+	private final String SPLIT_CHARACTER = "\t";
 
+	private final StringEncoder ENCODER;
+
+	private int SIZE;
 	
-	private Map<String, Integer> MAPPER;
-	
+	/** Internal map to store all the translations */
 	private Map<Integer, Map<Integer, Double>> TRANSLATIONS;
 	
-	private int IDX;
-	
-
-	
+	/**
+	 * Constructor with fresh data structures and an empty dictionary.  
+	 */
 	public ProbabilisticDictionary() {
-		MAPPER = new HashMap<String, Integer>();
+		ENCODER = new StringEncoder();		
 		TRANSLATIONS = new HashMap<Integer, Map<Integer, Double>>();
-		IDX = 0;		
+		SIZE = 0;
 	}
 	
+	/**
+	 * Constructor that loads an existing dictionary from a text file. 
+	 * The file is expected to have three tab-separated columns:
+	 * <ul>
+	 * <li /> source
+	 * <li /> target
+	 * <li /> p(target | source)
+	 * </ul>
+	 * @param file
+	 * 				The input statistical dictionary file
+	 * @throws IOException
+	 */
 	public ProbabilisticDictionary(String file) throws IOException {
+		this();
 		load(file);
 	}
 	
 	
-	public void addEntry(String src, String trg, double prob) {
-		updateInternalIndex(src);
-		updateInternalIndex(trg);
-		if (! TRANSLATIONS.containsKey(MAPPER.get(src))) {
-			TRANSLATIONS.put(MAPPER.get(src), new HashMap<Integer, Double>());
-		}
-		
-		TRANSLATIONS.get(MAPPER.get(src)).put(MAPPER.get(trg), prob);
-	}
-	
+	/**
+	 * Adds a new entry to the dictionary.
+	 * @param src
+	 * 				source text
+	 * @param trg
+	 * 				target text 
+	 * @param prob
+	 * 				p(target | source)
+	 */
+	public void add(String src, String trg, double prob) {
+		ENCODER.addString(src);
+		ENCODER.addString(trg);
 
-	
-	public void removeEntry(String src, String trg) {
-		if (TRANSLATIONS.containsKey(MAPPER.get(src)) && 
-			TRANSLATIONS.get(MAPPER.get(trg)).containsKey(trg)) {
-			TRANSLATIONS.get(MAPPER.get(src)).remove(trg);
-		}
-		if (TRANSLATIONS.get(MAPPER.get(src)).isEmpty()) {
-			TRANSLATIONS.remove(MAPPER.get(src));
+		if (! TRANSLATIONS.containsKey(ENCODER.getCode(src))) {
+			TRANSLATIONS.put(ENCODER.getCode(src), new HashMap<Integer, Double>());
 		}
 		
-	}
-	
-	public double getProbability(String src, String trg) {		
-		try {
-			return  TRANSLATIONS.get(MAPPER.get(src)).get(MAPPER.get(trg));
-		} catch (Exception e ) {
-			System.out.println(e);
-			return -1.0;
+		if (! hasPair(src, trg)) {
+			// If hasPair=true, This entry existed already. 
+			// Just updating the likelihood and no need to increase the size
+			SIZE++;
 		}
+		TRANSLATIONS.get(ENCODER.getCode(src)).put(ENCODER.getCode(trg), prob);
+	}
+
+	/**
+	 * @param src
+	 * @param trg
+	 * @return
+	 * 			true if the pair (src,trg) exists in the dictionary
+	 */
+	public boolean hasPair(String src, String trg) {
+		return TRANSLATIONS.containsKey(ENCODER.getCode(src)) &&  
+			   TRANSLATIONS.get(ENCODER.getCode(src))
+			   			.containsKey(ENCODER.getCode(trg));
 	}
 	
 	
 	/**
-	 * Remove all the entries from the dictionary if their probability is 
-	 * lower than the threshold. Use DEFAULT_PRUNING_THRESHOLD for default
-	 * value.
-	 * 
-	 * @param threshold
-	 * 				the given threshold;
+	 * Dumps the current dictionary into a
+	 * @param file
+	 * @throws IOException
 	 */
-	public void prune(double threshold) {
-		
-		
-		//TODO test if this is working
+	public void dump(String file) throws IOException {
+		// Dump to a file
+		FileOutputStream fos = new FileOutputStream(new File(file));
+		BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
 		for (int i : TRANSLATIONS.keySet()) {
-			Iterator<Integer> it = TRANSLATIONS.get(i).keySet().iterator();
-			
-			while (it.hasNext()) {
-				if (TRANSLATIONS.get(i).get(it.next()) <= threshold) {
-					it.remove();
-				}
+			for (int j  : TRANSLATIONS.get(i).keySet()) {
+				bw.write(ENCODER.getString(i));
+				bw.write(SPLIT_CHARACTER);
+				bw.write(ENCODER.getString(j));
+				bw.write(SPLIT_CHARACTER);
+				bw.write(TRANSLATIONS.get(i).get(j).toString());
+				bw.write("\n");			
 			}
-			
 		}
-		
-	}
-	
-	
-	public void prune(ProbabilisticDictionary trgSrcDictionary) {
-		// TODO
-	}
-	
-	public void prune (ProbabilisticDictionary trgSrcDictionary, double threshold) {
-		// TODO
+		bw.close();
+		fos.close();
 	}
 	
 	/**
@@ -108,7 +119,7 @@ public class ProbabilisticDictionary {
 	 * <ul>
 	 * <li /> src
 	 * <li /> trg
-	 * <li /> p(src,trg)	TODO confirm if it's joint probability
+	 * <li /> p(trg|src)
 	 * </ul>
 	 * @param file
 	 * 				Dictionary input file
@@ -121,16 +132,118 @@ public class ProbabilisticDictionary {
 		String line;
 		String[] splLine = new String[3]; 
 		while ((line = br.readLine()) != null) {
-			splLine = line.split(FILE_SPLIT_CHARACTER);			
-			addEntry(splLine[0], splLine[1], Double.valueOf(splLine[2]));			
+			splLine = line.split(SPLIT_CHARACTER);			
+			add(splLine[0], splLine[1], Double.valueOf(splLine[2]));			
+		}
+		br.close();
+		fis.close();
+	}
+	
+	/**
+	 * Remove all the entries from the dictionary if their probability is 
+	 * lower than the threshold. Use DEFAULT_PRUNING_THRESHOLD for default
+	 * value.
+	 * 
+	 * @param threshold
+	 * 				the given threshold;
+	 */
+	public void prune(double threshold) {
+		for (int i : TRANSLATIONS.keySet()) {
+			Iterator<Integer> it = TRANSLATIONS.get(i).keySet().iterator();
+			
+			while (it.hasNext()) {
+				if (TRANSLATIONS.get(i).get(it.next()) <= threshold) {
+					it.remove();	
+					SIZE--;
+				}
+			}
 		}
 	}
 	
-	public boolean dump(String file) {
-		// Dump to a file
-		
-		return false;
+	public void pruneWithTrg2SrcDictionary(ProbabilisticDictionary trgSrcDictionary) {
+		for (int i : TRANSLATIONS.keySet()) {
+			Iterator<Integer> it = TRANSLATIONS.get(i).keySet().iterator();
+			while (it.hasNext()) {
+				if (! trgSrcDictionary.hasPair(ENCODER.getString(it.next()), ENCODER.getString(i))) {
+					it.remove();
+					SIZE--;
+				}
+			}
+		}
 	}
+	
+//	public void prune (ProbabilisticDictionary trgSrcDictionary, double threshold) {
+//	// TODO
+//}
+	
+	/**
+	 * Removes the entry (src,trg) if it exists. As a side effect, the 
+	 * size of the dictionary decreases by 1. If the entry does not exist, 
+	 * nothing is modified.
+	 * 
+	 * @param src
+	 * 				source language text
+	 * @param trg
+	 * 				target language text
+	 * @return 
+	 * 				true if something was removed
+	 */
+	public boolean removeEntry(String src, String trg) {
+		if (hasPair(src, trg)) {			
+			TRANSLATIONS.get(ENCODER.getCode(src)).remove(ENCODER.getCode(trg));
+			SIZE--;
+			if (TRANSLATIONS.get(ENCODER.getCode(src)).isEmpty()) {
+				TRANSLATIONS.remove(ENCODER.getCode(src));
+			}
+			return true;
+		}
+		return false;
+		
+		
+
+	}
+		
+	/**
+	 * Note that if an entry is added twice, this number could be unnacurate.
+	 * @return
+	 * 			Number of entries in the dictionary
+	 */
+	public int size() {
+		return SIZE;
+	}
+	
+	public double getProbability(String src, String trg) {		
+		try {
+			return  TRANSLATIONS.get(ENCODER.getCode(src))
+								.get(ENCODER.getCode(trg));
+		} catch (Exception e ) {
+			System.out.println(e);
+			return -1.0;
+		}
+	}
+
+	/* 
+	 * Use just for testing purposes. Don't call with a real dictionary!
+	 * (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		StringBuffer sb = new StringBuffer();
+		
+		for (int i : TRANSLATIONS.keySet()) {
+			for (int j  : TRANSLATIONS.get(i).keySet()) {
+				sb.append(ENCODER.getString(i))
+				  .append(SPLIT_CHARACTER)
+				  .append(ENCODER.getString(j))
+				  .append(SPLIT_CHARACTER)
+				  .append(TRANSLATIONS.get(i).get(j))
+				  .append("\n");			
+			}
+		}
+		return sb.toString();
+	}
+	
 	
 	
 //	public Map<String, Double> getProbabilities(String src) {
@@ -161,12 +274,6 @@ public class ProbabilisticDictionary {
 //		throw new UnsupportedOperationException();
 //	}
 	 
-	private boolean updateInternalIndex(String txt) {
-		if (! MAPPER.containsKey(txt)) {
-			MAPPER.put(txt, IDX++);
-			return true;
-		}
-		return false;
-	}
+	
 	
 }

@@ -49,7 +49,7 @@ public class DictionaryPruner {
 		
 		ProbabilisticDictionary pd2 = new ProbabilisticDictionary();
 		pd2.load("trg dictionary");
-		pd.prune(pd2);
+		pd.pruneWithTrg2SrcDictionary(pd2);
 		
 		DictionaryPruner dp = new DictionaryPruner("");
 		dp.prune("");
