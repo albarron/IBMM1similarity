@@ -12,37 +12,6 @@ import org.apache.commons.cli.ParseException;
 
 public class DictionaryPruner {
 
-
-	private ProbabilisticDictionary DICTIONARY;
-		
-//	private final String SRC_TRG_FILE;
-//	
-//	private final String TRG_SRC_FILE;
-	
-	
-	
-	
-	public DictionaryPruner(String srcTrgDictionaryFile) throws IOException {
-		DICTIONARY = loadDictionary(srcTrgDictionaryFile);		
-	}
-
-	private ProbabilisticDictionary loadDictionary(String file) throws IOException {
-		ProbabilisticDictionary dictionary = new ProbabilisticDictionary();
-		
-		
-		return dictionary;
-	}
-	
-	public void prune(String trgSrcDictionary) throws IOException {
-		//ProbabilisticDictionary dictionary = loadDictionary(trgSrcDictionary);
-		
-	}
-	
-	
-	public ProbabilisticDictionary getDictionary() {
-		return DICTIONARY;
-	}
-	
 	private static CommandLine parseArguments(String[] args) {
 		HelpFormatter formatter = new HelpFormatter();
 		CommandLine cLine = null;
@@ -55,8 +24,10 @@ public class DictionaryPruner {
 				"Second dictionary to pruen from (trg-src) [optional]");
 		options.addOption("t", "threshold", true, 
 				String.format(
-						"Theshold to discard instances with lower probabilities (default: %d",
+						"Theshold to discard instances with lower probabilities (default: %f",
 						ProbabilisticDictionary.DEFAULT_PRUNING_THRESHOLD));
+		options.addOption("o", "output", true, 
+				"Output file (optional)");
 		
 		try {
 			cLine = parser.parse(options, args);
@@ -76,37 +47,40 @@ public class DictionaryPruner {
 		}
 		return cLine;
 	}
+
 	
+	
+
 	public static void main(String[] args) throws IOException {
 		CommandLine cLine = parseArguments(args);
 		
-		ProbabilisticDictionary dictionary = new ProbabilisticDictionary(cLine.getOptionValue("d"));
+		String srcTrgDictionary = cLine.getOptionValue("d");
 		
-		if (cLine.hasOption("e")) {
-			//TODO this is repetitive. Use some functions and fix it
-			ProbabilisticDictionary pd2 = new ProbabilisticDictionary(cLine.getOptionValue("e"));
-			if (cLine.hasOption("t")) {
+		//Pruning this dictionary
+		ProbabilisticDictionary dictionary = new ProbabilisticDictionary(srcTrgDictionary);
+		if (cLine.hasOption("t")) {
+			dictionary.prune(Double.valueOf(cLine.getOptionValue("t")));
+		} else {
+			dictionary.prune();
+		}
+		
+		// Pruning against an inverse dictionary
+		if (cLine.hasOption("e")) {			
+			String trgSrcDictionary = cLine.getOptionValue("e");
+			ProbabilisticDictionary pd2 = new ProbabilisticDictionary(trgSrcDictionary);
+			if (cLine.hasOption("t")) {			
 				pd2.prune(Double.valueOf(cLine.getOptionValue("t")));
-				dictionary.prune(Double.valueOf(cLine.getOptionValue("t")));
 			} else {
-				pd2.prune();
-				dictionary.prune();
+				dictionary.prune();					
 			}
 			dictionary.pruneWithTrg2SrcDictionary(pd2);
-			
-			
-			
-		} else { 
-			if (cLine.hasOption("t")) {
-				dictionary.prune(Double.valueOf(cLine.getOptionValue("t")));
-			} else {
-				dictionary.prune();
-			}
-			
 		}
-				
-		//TODO at the end dump the dictionary
+
+		String outputFile = cLine.hasOption("o") ? 
+				cLine.getOptionValue("o") : 
+				String.format("%s.prun", srcTrgDictionary); 
 		
+		dictionary.dump(outputFile);		
 	}
 	
 	
