@@ -8,9 +8,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class ProbabilisticDictionary {
 
@@ -30,7 +30,7 @@ public class ProbabilisticDictionary {
 	 */
 	public ProbabilisticDictionary() {
 		ENCODER = new StringEncoder();		
-		TRANSLATIONS = new HashMap<Integer, Map<Integer, Double>>();
+		TRANSLATIONS = new TreeMap<Integer, Map<Integer, Double>>();
 		SIZE = 0;
 	}
 	
@@ -66,7 +66,7 @@ public class ProbabilisticDictionary {
 		ENCODER.addString(trg);
 
 		if (! TRANSLATIONS.containsKey(ENCODER.getCode(src))) {
-			TRANSLATIONS.put(ENCODER.getCode(src), new HashMap<Integer, Double>());
+			TRANSLATIONS.put(ENCODER.getCode(src), new TreeMap<Integer, Double>());
 		}
 		
 		if (! hasPair(src, trg)) {

@@ -12,6 +12,56 @@ import org.apache.commons.cli.ParseException;
 
 public class DictionaryPruner {
 
+	
+	private final ProbabilisticDictionary dictionary;
+	private final String DICT_FILE;
+	private final double threshold;
+	private boolean withSecondDictionary;
+	
+	
+	public DictionaryPruner(String srcTrgDictFile, double threshold) throws IOException {
+		DICT_FILE = srcTrgDictFile;
+		dictionary = new ProbabilisticDictionary(DICT_FILE);		
+		System.out.println("Dictionary loaded");
+		this.threshold = threshold;
+		dictionary.prune(threshold);
+		System.out.println("Dictionary pruned");
+		withSecondDictionary = false;		
+	}
+	
+	public DictionaryPruner(String srcTrgDictFile, String trgSrcDictFile, double threshold) throws IOException {
+		this(srcTrgDictFile, threshold);
+		ProbabilisticDictionary trgSrcDictionary = new ProbabilisticDictionary(trgSrcDictFile);
+		System.out.println("Second dictionary loaded");
+		trgSrcDictionary.prune(threshold);
+		dictionary.pruneWithTrg2SrcDictionary(trgSrcDictionary);
+		System.out.println("Dictionary pruned wrt second dictionary");
+		withSecondDictionary = true;		
+	}
+	
+	public void dumpTo(String outputFile) throws IOException {
+		dictionary.dump(outputFile);
+		System.out.println("Dictionary dumped to " + outputFile);
+	}
+	
+	public void dump() throws IOException {
+		StringBuffer sb = new StringBuffer(); 
+		sb.append(DICT_FILE)
+		  .append(".")
+		  .append(threshold)
+		  .append(".");
+		
+		if (withSecondDictionary) {
+			sb.append("withInv.");
+		}
+		sb.append("prun");
+		dictionary.dump(sb.toString());
+		System.out.println("Dictionary dumped to " + sb.toString());
+	}
+	
+	
+	
+	
 	private static CommandLine parseArguments(String[] args) {
 		HelpFormatter formatter = new HelpFormatter();
 		CommandLine cLine = null;
@@ -49,39 +99,45 @@ public class DictionaryPruner {
 	}
 
 	
+	public static String getOutputFile(String input) {
+		return String.format("%s.%f.pruned", input, ProbabilisticDictionary.DEFAULT_PRUNING_THRESHOLD);		
+	}
 	
+	public static String getOutputFile(String input, double threshold) {
+		return String.format("%s.%f.pruned", input, threshold);		
+	}
 
+	public static String getOutputFileWinv(String input) {
+		return String.format("%s.%f.wInv.pruned", input, ProbabilisticDictionary.DEFAULT_PRUNING_THRESHOLD);		
+	}
+	
+	public static String getOutputFileWinv(String input, double threshold) {
+		return String.format("%s.%f.wInv.pruned", input, threshold);		
+	}
+	
 	public static void main(String[] args) throws IOException {
 		CommandLine cLine = parseArguments(args);
 		
 		String srcTrgDictionary = cLine.getOptionValue("d");
+				
+		double threshold = cLine.hasOption("t") ?
+					Double.valueOf(cLine.getOptionValue("t")) :
+					ProbabilisticDictionary.DEFAULT_PRUNING_THRESHOLD;	
 		
-		//Pruning this dictionary
-		ProbabilisticDictionary dictionary = new ProbabilisticDictionary(srcTrgDictionary);
-		if (cLine.hasOption("t")) {
-			dictionary.prune(Double.valueOf(cLine.getOptionValue("t")));
+		DictionaryPruner pruner;
+					
+		if (cLine.hasOption("e")) {
+			pruner = new DictionaryPruner(srcTrgDictionary, cLine.getOptionValue("e"), threshold);
 		} else {
-			dictionary.prune();
+			pruner = new DictionaryPruner(srcTrgDictionary, threshold);			
 		}
+			
 		
-		// Pruning against an inverse dictionary
-		if (cLine.hasOption("e")) {			
-			String trgSrcDictionary = cLine.getOptionValue("e");
-			ProbabilisticDictionary pd2 = new ProbabilisticDictionary(trgSrcDictionary);
-			if (cLine.hasOption("t")) {			
-				pd2.prune(Double.valueOf(cLine.getOptionValue("t")));
-			} else {
-				dictionary.prune();					
-			}
-			dictionary.pruneWithTrg2SrcDictionary(pd2);
-		}
-
-		String outputFile = cLine.hasOption("o") ? 
-				cLine.getOptionValue("o") : 
-				String.format("%s.prun", srcTrgDictionary); 
-		
-		dictionary.dump(outputFile);		
-	}
+		if (cLine.hasOption("o")) {
+			pruner.dumpTo(cLine.getOptionValue("o"));
+		} else {
+			pruner.dump();
+		}	}
 	
 	
 	
