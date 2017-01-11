@@ -21,19 +21,17 @@ public class DictionaryPruner {
 	
 	public DictionaryPruner(String srcTrgDictFile, double threshold) throws IOException {
 		DICT_FILE = srcTrgDictFile;
-		dictionary = new ProbabilisticDictionary(DICT_FILE);		
-		System.out.println("Dictionary loaded");
+		dictionary = new ProbabilisticDictionary(DICT_FILE, threshold);		
+		System.out.println("Dictionary loaded and pruned");
 		this.threshold = threshold;
-		dictionary.prune(threshold);
-		System.out.println("Dictionary pruned");
 		withSecondDictionary = false;		
 	}
 	
 	public DictionaryPruner(String srcTrgDictFile, String trgSrcDictFile, double threshold) throws IOException {
 		this(srcTrgDictFile, threshold);
-		ProbabilisticDictionary trgSrcDictionary = new ProbabilisticDictionary(trgSrcDictFile);
-		System.out.println("Second dictionary loaded");
-		trgSrcDictionary.prune(threshold);
+		ProbabilisticDictionary trgSrcDictionary = new ProbabilisticDictionary(trgSrcDictFile, threshold);
+		System.out.println("Second dictionary loaded and pruned");
+//		trgSrcDictionary.prune(threshold);
 		dictionary.pruneWithTrg2SrcDictionary(trgSrcDictionary);
 		System.out.println("Dictionary pruned wrt second dictionary");
 		withSecondDictionary = true;		

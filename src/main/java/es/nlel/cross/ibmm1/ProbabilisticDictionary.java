@@ -51,6 +51,26 @@ public class ProbabilisticDictionary {
 		load(file);
 	}
 	
+	/**
+	 * Constructor that loads an existing dictionary from a text file. 
+	 * An entry is loaded only if p(trg|src)>threshold.
+	 * The file is expected to have three tab-separated columns:
+	 * <ul>
+	 * <li /> source
+	 * <li /> target
+	 * <li /> p(target | source)
+	 * </ul>
+	 * @param file
+	 * 				The input statistical dictionary file
+	 * @param threshold
+	 * 				Minimum probability to consider an instance
+	 * @throws IOException
+	 */
+	public ProbabilisticDictionary(String file, double threshold) throws IOException {
+		this();
+		load(file, threshold);
+	}
+	
 	
 	/**
 	 * Adds a new entry to the dictionary.
@@ -134,6 +154,39 @@ public class ProbabilisticDictionary {
 		while ((line = br.readLine()) != null) {
 			splLine = line.split(SPLIT_CHARACTER);			
 			add(splLine[0], splLine[1], Double.valueOf(splLine[2]));			
+		}
+		br.close();
+		fis.close();
+	}
+	
+	/**
+	 *  Loads a dictionary from an input file. An entry is loaded only if 
+	 *  p(trg|src)>threshold. It expects a tab-separated file
+	 * with three columns:
+	 * <ul>
+	 * <li /> src
+	 * <li /> trg
+	 * <li /> p(trg|src)
+	 * </ul>
+	 * @param file
+	 * 				Dictionary input file
+	 * @param threshold
+	 * 				Minimum probability to consider an instance
+	 * @throws IOException
+	 */
+	public void load(String file, double threshold) throws IOException {
+		FileInputStream fis = new FileInputStream(new File(file));		
+		BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+		
+		String line;
+		double prob;
+		String[] splLine = new String[3]; 
+		while ((line = br.readLine()) != null) {
+			splLine = line.split(SPLIT_CHARACTER);
+			prob = Double.valueOf(splLine[2]);
+			if (prob > threshold) {
+				add(splLine[0], splLine[1], prob);
+			}
 		}
 		br.close();
 		fis.close();
